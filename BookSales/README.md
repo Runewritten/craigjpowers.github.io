@@ -52,36 +52,38 @@ Our sample data includes 50 book listings across five genres, pulled from the qu
     - Negatively correlates to book price.
   - Mystery and sci-fi inversely correlate, leaning toward non-female authors.
 - The only other notable correlation is the review rating to the number of books written.
-
+---
 ### Model
+
+![](Images/regression.png)
 
 After some exploration with training data, Gender remained insignificant, reinforcing our inability to reach a conclusion on it. Instead, our interpretation of R-squared found that 49.41% of the variation in number of books sold by authors can be explained by variation in genre—specifically fantasy, romance, or mystery.
 
 #### Our final regression equation is: 
 
-√Y1(Books Sold) = b0 + b1(Gender) + b2(Genre(Fantasy)) + b3(Genre(Romance)) + b4(Genre(Mystery)) +e
-
- ![](Images/regression.png)
-
-Since the remaining variables are all binary, we can also reach 8 specific interaction breakdowns for each gender based on the three primary genres and the grouped remainder genres:
-
-
+Y1(Books Sold) = b0 + b1(Gender) + b2(Genre(Fantasy)) + b3(Genre(Romance)) + b4(Genre(Mystery)) +e
 
 ---
 ## Conclusion
 
-Overall, the model fit is weak, and suffers from the exclusion of variables like marketing data, or book-cover judgment, which were not readily available factors as of this project.
+Overall, the model fit is weak, and suffers from the exclusion of variables like marketing data, or book-cover judgment, which were not readily available factors as of this project. Beyond that, a more robust dataset like that of Nielsen's NPS Scan might be helpful in building out a stronger model, but be aware of the steep paywall attached to its access.
 
-There's no conclusion on gender effect on sales outside of genre, but we can make some interesting interpretations out of the interactions of the model that may help boost sales:
+There's no conclusion on gender effect on sales outside of genre, but we can make some interesting interpretations out of the interactions of the model that may help boost sales if the model holds up:
 
     1. For every 73 books sold, women who write romance will gain another 50 books sold on average
     2. For every 73 books sold, women will lose 19 book sales on average by writing sci-fi or religious fiction (and indeed, will always average 19 books less than men/non-female)
     3. For every 73 books sold, men will gain another 69 books sold if they write fantasy
     4. For every 73 books sold, men gain no additional sales by writing in sci-fi/religious
 
+Some other takeaways:
+- Wwomen make 26% less than men on average, before genre is considered
+- Fantasy as a genre seems to be a money-maker
+- Price and review rating are surprisingly irrelevant. A greater sample size would be needed to verify those two variables’ true significance. 
 
 
 
 ### Recommendations
 
+Overall, authors needn't worry about how their name and its assumption of gender might affect sales. Female authors perform strongly in romance, but whether that's incidental is inconclusive. The same is true of male authors and fantasy. 
 
+Fantasy is a genre underserved by female authors, but lucrative overall-- the recent surge of "fantasy romance" as a genre seems very much an attempt to capitalize on this fact, bridging audiences in a low-risk manner, and an author of any gender would do well to ride that trend.
