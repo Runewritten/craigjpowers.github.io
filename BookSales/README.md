@@ -61,20 +61,11 @@ After some exploration with training data, Gender remained insignificant, reinfo
 
 √Y1(Books Sold) = b0 + b1(Gender) + b2(Genre(Fantasy)) + b3(Genre(Romance)) + b4(Genre(Mystery)) +e
 
+ ![](Images/regression.png)
 
 Since the remaining variables are all binary, we can also reach 8 specific interaction breakdowns for each gender based on the three primary genres and the grouped remainder genres:
 
-  - Female/Fantasy
-  - Female/Romance
-  - Female/Mystery
-  - Female/Sci-fi/Religious
-  - Male/Fantasy
-  - Male/Romance
-  - Male/Mystery
-  - Male/Sci-fi/Religious
 
-Taking the form of:
-√Y1(Books Sold) = b0 + b1(Gender) * b2(Genre) + e
 
 ---
 ## Conclusion
