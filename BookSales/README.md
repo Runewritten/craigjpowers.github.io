@@ -17,7 +17,7 @@ What actions might an author take to maximize sales based on their gender?
 
 Our population of interest is all fiction books sold.
 
-Our sample data includes 50 book listings across five genres, pulled from the quarterly listings on Publisher’s Weekly from October 2020 to Jan 2021. (Publishers Weekly, 2021) This data includes book title, author name (from which we will determine gender assumption), publisher, page count, price, publishing date, and total units sold over the period.
+Our sample data includes book listings across five genres, pulled from the quarterly listings on Publisher’s Weekly from October 2020 to Jan 2021. (Publishers Weekly, 2021) This data includes book title, author name (from which we will determine gender assumption), publisher, page count, price, publishing date, and total units sold over the period.
 
 ### The Variables
 
