@@ -76,7 +76,7 @@ There's no conclusion on gender effect on sales outside of genre, but we can mak
     4. For every 73 books sold, men gain no additional sales by writing in sci-fi/religious
 
 Some other takeaways:
-- Wwomen make 26% less than men on average, before genre is considered
+- Women make 26% less than men on average, before genre is considered
 - Fantasy as a genre seems to be a money-maker
 - Price and review rating are surprisingly irrelevant. A greater sample size would be needed to verify those two variables’ true significance. 
 
