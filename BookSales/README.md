@@ -82,7 +82,7 @@ Some other takeaways:
 
 
 
-### Recommendations
+# Recommendations
 
 Overall, authors needn't worry about how their name and its assumption of gender might affect sales. Female authors perform strongly in romance, but whether that's incidental is inconclusive. The same is true of male authors and fantasy. 
 
