@@ -1,0 +1,345 @@
+/* Running a regression and cluster analysis on airbnb listings data in Chicago to determine primary factors in pricing */
+
+
+filename webdat url "https://bigblue.depaul.edu/jlee141/econdata/eco520/airbnb2019.csv" ;
+
+/* Import Chicago Community data*/
+PROC IMPORT OUT= airbnb0 DATAFILE= webdat DBMS=CSV REPLACE;
+RUN;
+proc contents ; run ;
+
+proc surveyselect data= airbnb0 method=srs seed = 2026609
+     n = 2000 out=airbnb1 ;
+run;
+
+/* The following code will create the class of host */
+data airbnb2 ; set airbnb1 ;
+	
+     if      0 <   host_total_listings  < 2  then hostclass = 1  ; 
+     else if 2 <= host_total_listings   < 50 then hostclass = 2  ; 
+     else if host_total_listings   >=     50 then hostclass = 3  ;
+    
+/* Data Cleaning */
+	 if hostclass = . then hostclass = 1;
+	 if accommodates > (beds *2) then accommodates = (beds * 2); 
+	 if accommodates = 0 then delete;
+	 if reviews_per_month > 12 then reviews_per_month = 12;
+	 if host_total_listings = 0 then delete;
+	 if host_total_listings > 100 then outlier = 1; else outlier = 0;
+	 if host_total_listings > 100 then host_total_Listings = 101;
+	 if number_of_reviews > 500 then outlier = 1;
+	 if number_of_reviews > 500 then number_of_reviews = 500;
+	 if minimum_nights > 31 then outlier = 1;
+	 if minimum_nights > 31 then minimum_nights = 31;
+	 /* New variables*/
+	 total_price = (pricepernight * minimum_nights);
+	 beds_sq = beds**2;
+	 bedrooms_sq = bedrooms**2;
+	 bathrooms_sq = bathrooms**2;
+run ;
+
+/* Examining Data*/
+
+proc means ; run ; 
+
+proc contents; run;
+
+proc freq order=freq ; tables hostclass ; run ;
+
+proc univariate data= airbnb2; run;
+
+proc sgplot data = airbnb2;
+	vbox bedrooms;
+	run;
+proc sgplot data = airbnb2;
+	vbox bathrooms;
+	run;
+proc sgplot data = airbnb2;
+	vbox beds;
+	run;
+proc sgplot data = airbnb2;
+	vbox accommodates;
+	run;
+proc sgplot data = airbnb2;
+	vbox guests_included;
+	run;
+proc sgplot data = airbnb2;
+	vbox pricepernight;
+	run;
+proc sgplot data = airbnb2;
+	vbox reviews_per_month;
+	run;
+proc sgplot data = airbnb2;
+	vbox review_scores_rating;
+	run;
+proc sgplot data = airbnb2;
+	vbox number_of_reviews;
+	run;
+proc sgplot data = airbnb2;
+	vbox host_total_listings;
+	run;
+proc sgplot data = airbnb2;
+	vbox minimum_nights;
+	run;
+proc sgplot data = airbnb2;
+	vbox listingmonth;
+	run;
+proc sgplot data = airbnb2;
+	vbox total_price;
+	run;
+
+	/*Investigating Outliers*/
+
+proc sort ; by bedrooms; run;
+proc print ;
+	where bedrooms > 3;
+	run;
+
+proc print ;
+	by host_total_listings;
+	where hostclass = .;
+	run;
+
+proc print ;
+	where minimum_nights > 14;
+	run;
+
+proc sort ; by pricepernight; run;
+proc print;
+	var guests_included pricepernight bathrooms bedrooms;
+	where pricepernight > 400;
+	run;
+
+/* Scatterplots Vs.Price */
+
+proc sgscatter data = airbnb2;
+	plot pricepernight * (listingmonth minimum_nights accommodates beds bedrooms bathrooms host_total_listings number_of_reviews reviews_per_month review_scores_rating guests_included);
+	run;
+
+proc sgplot data = airbnb2;
+	scatter y= pricepernight x= beds_sq;
+	run;
+proc sgplot data = airbnb2;
+	scatter y= pricepernight x= bedrooms_sq;
+	run;
+proc sgplot data = airbnb2;
+	scatter y= pricepernight x= bathrooms_sq;
+	run;
+
+/* log transformations for non-linear relationships */
+
+data airbnb3 ; set airbnb2;
+	log_total_listings = log(host_total_listings);
+	log_number_of_reviews = log(number_of_reviews);
+	log_reviews_month = log(reviews_per_month);
+
+	run;
+
+proc sgplot data = airbnb3;
+	scatter y= pricepernight x= log_total_listings;
+	run;
+
+proc sgplot data = airbnb3;
+	scatter y= pricepernight x= log_number_of_reviews;
+	run;
+
+proc sgplot data = airbnb3;
+	scatter y= pricepernight x= log_reviews_month ;
+	run;
+
+proc sgscatter data = airbnb3;
+	plot pricepernight * (host_total_listings log_total_listings  number_of_reviews log_number_of_reviews reviews_per_month  log_reviews_month);
+	run;
+
+/* Hierarchal Cluster */
+
+proc cluster data=airbnb2 out= clusterdata1 method = ward ccc pseudo print = 16;
+	var number_of_reviews reviews_per_month review_scores_rating;
+	copy pricepernight;
+	run;
+
+proc cluster data=airbnb2 out= clusterdata1 method = ward ccc pseudo print = 6;
+	var number_of_reviews reviews_per_month review_scores_rating;
+	copy pricepernight accommodates;
+	run;
+
+proc tree data = clusterdata1 out = treedata1 ncl = 6;
+	copy number_of_reviews reviews_per_month review_scores_rating accommodates pricepernight;
+	run;
+
+proc sgplot data = treedata1;
+	scatter x= number_of_reviews y= reviews_per_month / group = cluster;
+	run;
+
+proc sgplot data = treedata1;
+	scatter x= number_of_reviews y= review_scores_rating/ group = cluster;
+	run;
+
+proc sgplot data = treedata1;
+	scatter x= reviews_per_month y= review_scores_rating/ group = cluster;
+	run;
+
+/* Non-hierarchal Cluster */
+
+proc fastclus data= airbnb2 out= kclusterdata1 maxclusters = 6;
+	var number_of_reviews reviews_per_month review_scores_rating;
+	run;
+
+proc sgplot data = kclusterdata1;
+	scatter x= number_of_reviews y= reviews_per_month / group = cluster;
+	run;
+
+proc sgplot data = kclusterdata1;
+	scatter x= number_of_reviews y= review_scores_rating/ group = cluster;
+	run;
+
+proc sgplot data = kclusterdata1;
+	scatter x= reviews_per_month y= review_scores_rating/ group = cluster;
+	run;
+
+
+
+proc glm data = treedata1;
+class cluster;
+model pricepernight = accommodates cluster /solution;
+Output out=regout ;
+run;
+/* only cluster 1 appears significant */
+
+data clusterdums ; set regout;
+	if cluster = 1 then cluster1 = 1; else cluster1 = 0;
+	if cluster = 2 then cluster2 = 1; else cluster2 = 0;
+	if cluster = 3 then cluster3 = 1; else cluster3 = 0;
+	if cluster = 4 then cluster4 = 1; else cluster4 = 0;
+	if cluster = 5 then cluster5 = 1; else cluster5 = 0;
+	if cluster = 6 then cluster6 = 1; else cluster6 = 0;
+run;
+
+data hostclassdums ; set airbnb2;
+	if hostclass = 1 then hostclass1 = 1; else hostclass1 = 0;
+	if hostclass = 2 then hostclass2 = 1; else hostclass2 = 0;
+	if hostclass = 3 then hostclass3 = 1; else hostclass3 = 0;
+	run;
+
+proc contents data =clusterdums;
+run;
+
+proc sort data = airbnb3;
+	by pricepernight;
+	run;
+
+proc sort data = clusterdums;
+	by pricepernight;
+	run;
+
+proc sort data = hostclassdums;
+	by pricepernight;
+	run;
+
+data regdata_merged;
+	merge airbnb3 clusterdums hostclassdums;
+	by pricepernight;
+
+	run;
+
+/* Model for hostclass significance*/
+proc reg data= regdata_merged;
+	model pricepernight = accommodates cluster1 hostclass1 hostclass2;  
+	Output out=airbnb4 predicted=yhat residual=res1 ;
+run ;
+
+/* Training Data */
+
+proc sort data=airbnb4;
+     by pricepernight;
+run;
+
+proc surveyselect data= airbnb4  method=srs seed=111111 outall samprate=0.8 out= airbnb2_subset;
+strata pricepernight ;
+run;
+
+data training;
+   set airbnb2_subset;
+       Y = pricepernight  ;
+   if selected=0 then Y = . ;
+run;
+
+%let indep_var = accommodates cluster1 hostclass1 number_of_reviews reviews_per_month review_scores_rating bedrooms bathrooms beds guests_included host_total_listings listingmonth ;
+
+proc reg data=training ;
+ model y = accommodates cluster1 hostclass1 beds bedrooms bathrooms review_scores_rating  ;   output out=r1(where=(y=.)) p=yhat1 ; 
+ model y = &indep_var                            ;   output out=r2(where=(y=.)) p=yhat2 ; 
+ model y = &indep_var  / selection=stepwise      ;   output out=r3(where=(y=.)) p=yhat3 ; 
+ model y = &indep_var  / selection=adjrsq        ;   output out=r4(where=(y=.)) p=yhat4 ; 
+run ;
+
+
+data allr ; merge r1 r2 r3 r4 ; 
+  yorg = pricepernight  ;
+  e1 = yorg - yhat1 ;
+  e2 = yorg - yhat2 ;
+  e3 = yorg - yhat3 ;
+  e4 = yorg - yhat4 ;
+  rmse1 = ((e1)**2)**0.5 ; 
+  rmse2 = ((e2)**2)**0.5 ; 
+  rmse3 = ((e3)**2)**0.5 ; 
+  rmse4 = ((e4)**2)**0.5 ; 
+  mse1 = (e1)**2 ; 
+  mse2 = (e2)**2 ; 
+  mse3 = (e3)**2 ; 
+  mse4 = (e4)**2 ; 
+  mae1 = abs(e1) ; 
+  mae2 = abs(e2) ; 
+  mae3 = abs(e3) ; 
+  mae4 = abs(e4) ; 
+  mpe1 = abs((e1)/yorg) ; 
+  mpe2 = abs((e2)/yorg) ; 
+  mpe3 = abs((e3)/yorg) ; 
+  mpe4 = abs((e4)/yorg) ; 
+run ;
+
+proc means n mean data=allr maxdec=4 ; var rmse: mse: mae: mpe:  ;  run ;
+
+/* Testing Data */
+
+data testing;
+   set airbnb2_subset;
+       Y = pricepernight  ;
+   if selected=1 then Y = . ;
+run;
+
+proc freq data = testing;
+run;
+
+proc reg data=testing ;
+ model y = accommodates cluster1 hostclass1 beds bedrooms bathrooms review_scores_rating  ;   output out=r1(where=(y=.)) p=yhat1 ; 
+ model y = &indep_var                            ;   output out=r2(where=(y=.)) p=yhat2 ; 
+ model y = &indep_var  / selection=stepwise      ;   output out=r3(where=(y=.)) p=yhat3 ; 
+ model y = &indep_var  / selection=adjrsq        ;   output out=r4(where=(y=.)) p=yhat4 ; 
+run ;
+
+data allr_test ; merge r1 r2 r3 r4 ; 
+  yorg = pricepernight  ;
+  e1 = yorg - yhat1 ;
+  e2 = yorg - yhat2 ;
+  e3 = yorg - yhat3 ;
+  e4 = yorg - yhat4 ;
+  rmse1 = ((e1)**2)**0.5 ; 
+  rmse2 = ((e2)**2)**0.5 ; 
+  rmse3 = ((e3)**2)**0.5 ; 
+  rmse4 = ((e4)**2)**0.5 ; 
+  mse1 = (e1)**2 ; 
+  mse2 = (e2)**2 ; 
+  mse3 = (e3)**2 ; 
+  mse4 = (e4)**2 ; 
+  mae1 = abs(e1) ; 
+  mae2 = abs(e2) ; 
+  mae3 = abs(e3) ; 
+  mae4 = abs(e4) ; 
+  mpe1 = abs((e1)/yorg) ; 
+  mpe2 = abs((e2)/yorg) ; 
+  mpe3 = abs((e3)/yorg) ; 
+  mpe4 = abs((e4)/yorg) ; 
+run ;
+
+proc means n mean data=allr_test maxdec=4 ; var rmse: mse: mae: mpe:  ;  run ;
