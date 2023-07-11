@@ -1,0 +1,125 @@
+# Using neural net ML to determine the best model for detecting mortage loan deliquencies
+
+# Adding some functions to use for analysis from server
+source("/var/www/html/jlee141/econdata/R/func_lib.R")
+
+# Read Data from bigblue server 
+gse <- read.csv("/var/www/html/jlee141/econdata/fannie_mae/Fannie_Mort_IL_2007.csv")
+str(gse)
+
+# Create indata
+indata <- subset(gse,select=-c(fstimebuyer,state,orgyear,relo_flg,zip_3))
+
+indata$purpose  <- as.factor(indata$purpose)
+indata$occ_stat <- as.factor(indata$occ_stat)
+
+# Convert multiple dummy variables
+library('fastDummies')
+indata <- dummy_cols(indata, select_columns = c('purpose','occ_stat'),
+                     remove_selected_columns = TRUE)
+str(indata)
+
+# Normalize Data using min_max_nor
+zindata = min_max_nor(indata)
+
+# Split the data into train and test data
+set.seed(2026609)
+
+train_idx <- sample(nrow(zindata),round(.8*nrow(zindata)))
+train <- zindata[train_idx,]
+test  <- zindata[-train_idx,]
+testy <- test$delinq
+# The dependent variable needs to be a factor to be a classification 
+train$delinq    <- as.factor(train$delinq)
+
+
+# Neural Network Models
+library(neuralnet)
+
+#Model 0-----------------------
+
+nnet0 <- neuralnet(delinq~., data=train, linear.output = FALSE)
+plot(nnet0)
+
+pred0   <- predict(nnet0,test)
+pred0   <- pred0[,2]
+conf_table(pred0,testy,"NeuralNet0")
+           auc_plot(pred0,testy,"NeuralNet 0") 
+
+#Model 1----------------------         
+           
+nnet1 <- neuralnet(delinq~., data=train, linear.output = FALSE,hidden=c(5))
+plot(nnet1)
+           
+pred1   <- predict(nnet1,test)
+pred1   <- pred1[,2]
+conf_table(pred1,testy,"NeuralNet1")
+auc_plot(pred1,testy,"NeuralNet 1 (5)")      
+
+#Model 2----------------------         
+
+nnet2 <- neuralnet(delinq~., data=train, linear.output = FALSE,hidden=c(5,2), 
+                   stepmax = 1e+06)
+plot(nnet2)
+
+pred2   <- predict(nnet2,test)
+pred2   <- pred2[,2]
+conf_table(pred2,testy,"NeuralNet2")
+auc_plot(pred2,testy,"NeuralNet 2 (5,2)") 
+
+#Model 3----------------------         
+
+nnet3 <- neuralnet(delinq~., data=train, linear.output = FALSE,hidden=c(7,3), 
+                   stepmax = 1e+07)
+plot(nnet3)
+
+pred3   <- predict(nnet3,test)
+pred3   <- pred3[,2]
+conf_table(pred3,testy,"NeuralNet3")
+auc_plot(pred3,testy,"NeuralNet 3 (7,3)") 
+
+#Model 4----------------------         
+
+nnet4 <- neuralnet(delinq~., data=train, linear.output = FALSE,hidden=c(5,3,2), 
+                   stepmax = 1e+08)
+plot(nnet4)
+
+pred4   <- predict(nnet4,test)
+pred4   <- pred4[,2]
+conf_table(pred4,testy,"NeuralNet4")
+auc_plot(pred4,testy,"NeuralNet 4 (5,3,2)") 
+
+
+par(mfrow=c(2,2))
+auc_plot(pred1,testy,"Neural Network Model-H(5)")
+auc_plot(pred2,testy,"Neural Network Model-H(5,2)")
+auc_plot(pred3,testy,"Neural Network Model-H(7,3)")
+auc_plot(pred4,testy,"Neural Network Model-H(5,3,2)")
+
+par(mfrow=c(1,1))
+
+#Model 0 AUC: 0.79404
+#Model 1 AUC: 0.7834
+#Model 2 AUC: 0.75161
+#Model 3 AUC: 0.75161
+#Model 4 AUC: 0.75784
+
+# Confusion Matrix
+
+dec_model1 <- ifelse(pred1 > .3,1,0)
+addmargins(table(testy,dec_model1))
+
+#                dec_model1
+#                 0   1  Sum
+#           0    648  269  917
+#  testy    1     79  204  283
+#           Sum  727  473 1200
+
+#a) Probability of the model correctly predicting deliquents is: 
+      #204/473= 43.13%
+#b) Probability of the model correctly predicting NOT delinquent is: 
+      #648/727 = 89.13%
+#c) Probability of model making a false positive is: 
+      #269/1200 = 22.41%
+#d) Probability of model making a false negative is:
+      #79/1200 = 6.58%
