@@ -1,0 +1,535 @@
+/* Exploring Covid data to first predict positive Covid-19 cases, then to explore the factors in hospitalization rates due to Covid-19 /*
+
+
+filename webdat url "https://bigblue.depaul.edu/jlee141/econdata/eco520/COVID19_WI22.csv" ;
+proc import datafile=webdat out = COVID19 DBMS = csv  replace ; run ;
+run ;
+
+/*Selecting 800 randomly selected census tracts in WI */
+proc surveyselect data= COVID19  method=srs seed= 2026609
+     N=800 out= MYCOVID19 ;
+run;
+proc contents data=MYCOVID19 ; 
+run ;
+
+	/*
+	1
+	*/
+
+Data Covid_cleaned; set mycovid19;
+	Pct_POSITIVE = (positive/population)*100;
+	Pct_DEATH= (deaths/population)*100;
+	Pct_HOSP_POSITIVE = (HOSP_YES/positive)*100;
+
+	if POPULATION < 3000 then SIZE_CLASS =1;
+	if 3000 <= POPULATION < 5200 then SIZE_CLASS = 2;
+	if POPULATION >= 5200 then SIZE_CLASS = 3;
+	if SIZE_CLASS = 1 then sizeclass1 = 1; else sizeclass1 = 0;
+	if SIZE_CLASS = 2 then sizeclass2 = 1; else sizeclass2 = 0;
+	if SIZE_CLASS = 3 then sizeclass3 = 1; else sizeclass3 = 0;
+
+	if GEOID = . or 0 then delete;
+	if POPULATION = . or 0 then delete;
+
+	run;
+
+proc summary print data= covid_cleaned;
+	var pct_positive pct_hosp_positive pct_death geoid population size_class;
+	run;
+
+proc sort data = covid_cleaned;
+	by descending pct_positive;
+	run;
+
+	/*
+	2
+	*/
+
+	/* 1) Finding mean percentages for Top 5 Counties */
+proc summary data = covid_cleaned print mean; 
+	var pct_positive ; class county;
+	output out =pct1 (drop = _) mean = pos_mean;
+	run;
+proc sort data = pct1; by descending pos_mean; run;
+proc print data = pct1 (firstobs = 1 obs =5); run;
+
+proc summary data = covid_cleaned print mean; 
+	var pct_hosp_positive ; class county;
+	output out =pct2 (drop = _) mean = hosp_mean;
+	run;
+proc sort data = pct2; by descending hosp_mean; run;
+proc print data = pct2 (firstobs = 1 obs =5); run;
+
+proc summary data = covid_cleaned print mean; 
+	var pct_death ; class county;
+	output out =pct3 (drop = _) mean = death_mean;
+	run;
+proc sort data = pct3; by descending death_mean; run;
+proc print data = pct3 (firstobs = 1 obs =5); run;
+
+	/* 2) Percentages based on population class size */
+
+proc summary print data = covid_cleaned; 
+	var pct_positive pct_hosp_positive pct_death; class size_class;
+	run;
+
+proc sgplot data = covid_cleaned;
+	histogram pct_positive /group = size_class;
+	run;
+
+proc sgplot data = covid_cleaned;
+	histogram pct_hosp_positive /group = size_class;
+	run;
+
+proc sgplot data = covid_cleaned;
+	histogram pct_death /group = size_class;
+	run;
+
+proc sgplot data = covid_cleaned;
+	vbar size_class /response = pct_positive stat = mean;
+	run;
+
+proc sgplot data = covid_cleaned;
+	vbar size_class /response = pct_hosp_positive stat = mean;
+	run;
+
+proc sgplot data = covid_cleaned;
+	vbar size_class /response = pct_death stat = mean;
+	run;
+
+	/* 3) Correlation Data */
+
+proc contents data=covid_cleaned; run;
+
+proc corr data= covid_cleaned noprob nosimple;
+	var pct_positive ADULT_LIMITED_ENGLISH ADULT_SPANISH_LENG POP_LT18 POP_65P 
+	POP_BELOWPOV POP_DISABILITY POP_HEALTHINS POP_MEDICAD POP_MEDICARE SIZE_CLASS
+	HOUS_NOINTERNET HOUS_NOSMARTPHN HOUS_NO_VEH;
+	run;
+
+proc sgplot data = covid_cleaned; 
+	scatter y = pct_positive x = ADULT_SPANISH_LENG;
+	reg y=pct_positive x=ADULT_SPANISH_LENG;
+	run;
+
+	/*
+	3
+	*/
+
+	/* 1) Hierarchal Clustering */
+
+	proc cluster data= covid_cleaned out= clusterdata1 method = ward ccc pseudo print = 16;
+	var POP_HEALTHINS POP_BELOWPOV POP_65P;
+	copy pct_positive pct_hosp_positive;
+	run;
+
+	proc tree data = clusterdata1 out = treedata1 ncl = 6;
+	copy pct_positive pct_hosp_positive POP_HEALTHINS POP_BELOWPOV POP_65P;
+	run;
+
+	proc sgplot data = treedata1;
+	scatter x= POP_HEALTHINS y= POP_BELOWPOV / group = cluster;
+	run;
+
+	proc sgplot data = treedata1;
+	scatter x= POP_HEALTHINS y= POP_65P / group = cluster;
+	run;
+
+	proc sgplot data = treedata1;
+	scatter x= POP_65P y= POP_BELOWPOV / group = cluster;
+	run;
+
+	/* 2) Non-hierarchal Clustering */
+
+proc fastclus data= covid_cleaned out= kclusterdata1 maxclusters = 6;
+	var POP_HEALTHINS POP_BELOWPOV POP_65P;
+	run;
+
+proc sgplot data = kclusterdata1;
+	scatter x= POP_HEALTHINS y= POP_BELOWPOV / group = cluster;
+	run;
+
+proc sgplot data = kclusterdata1;
+	scatter x= POP_HEALTHINS y= POP_65P/ group = cluster;
+	run;
+
+proc sgplot data = kclusterdata1;
+	scatter x= POP_65P y= POP_BELOWPOV/ group = cluster;
+	run;
+
+
+	/* 3, 4 & 5) running GLM and establishing cluster labels */
+proc glm data = kclusterdata1;
+class cluster;
+model pct_positive = cluster /solution;
+Output out=regout ;
+run;
+
+data covid_clustered ; set regout;
+	if cluster = 1 then cluster1 = 1; else cluster1 = 0;
+	if cluster = 2 then cluster2 = 1; else cluster2 = 0;
+	if cluster = 3 then cluster3 = 1; else cluster3 = 0;
+	if cluster = 4 then cluster4 = 1; else cluster4 = 0;
+	if cluster = 5 then cluster5 = 1; else cluster5 = 0;
+	if cluster = 6 then cluster6 = 1; else cluster6 = 0;
+	log_pct_Hosp = log(pct_hosp_positive);
+	log_pctPos = log(pct_POSITIVE);
+	drop cluster distance;
+	label cluster1 = 'Retired mid-income' cluster2 = 'Working wealthy'
+			cluster3 = 'Working mid-income' cluster4 = 'Working poor'
+			cluster5 = 'Young poor' cluster6 = 'Retired wealthy';
+run;
+
+proc corr data= covid_clustered noprob nosimple;
+	var pct_positive ADULT_LIMITED_ENGLISH ADULT_SPANISH_LENG POP_LT18 POP_65P 
+	POP_BELOWPOV POP_DISABILITY POP_HEALTHINS POP_MEDICAD POP_MEDICARE
+	HOUS_NOINTERNET HOUS_NOSMARTPHN HOUS_NO_VEH cluster1 cluster2 cluster3 
+	cluster4 cluster5 cluster6 sizeclass1 sizeclass2 sizeclass3;
+	run;
+
+
+proc glm data = kclusterdata1;
+class cluster;
+model pct_hosp_positive = cluster /solution;
+Output out=regout2 ;
+run;
+
+
+
+	/*
+	4
+	*/
+
+proc sort data = covid_clustered;
+	by log_pctPos;
+	run;
+
+	/* Setting up Training Data */
+
+proc surveyselect data= covid_clustered  method=srs seed=111111 outall samprate=0.8 out= covid19_subset;
+run;
+
+proc freq data=covid19_subset; tables selected ; 
+ run;
+
+data training;
+   set covid19_subset;
+       Y = log_pctPos  ;
+   if selected=0 then Y = . ;
+run;
+
+proc means data=training ; var log_pctPos y ; run ;
+
+	/* Regression Models using log(pct_positive) */
+
+%let indep_var = ADULT_LIMITED_ENGLISH ADULT_SPANISH_LENG POP_LT18 POP_65P 
+	POP_BELOWPOV POP_DISABILITY POP_HEALTHINS POP_MEDICAD POP_MEDICARE
+	HOUS_NOINTERNET HOUS_NOSMARTPHN HOUS_NO_VEH cluster1 cluster2 cluster3 
+	cluster4 cluster5 cluster6 sizeclass1 sizeclass2 sizeclass3 AREA_LAND 
+	AREA_WATER ;
+
+proc reg data=training ;
+	model y = POP_HEALTHINS;
+					output out=r1(where=(y=.)) p=yhat1 ;
+ 	/* custom model 2 processed separately below */
+	model y = &indep_var ;
+					output out=r3(where=(y=.)) p=yhat3 ;
+	model y = &indep_var /selection = stepwise;
+					output out=r4(where=(y=.)) p=yhat4 ;
+	model y = &indep_var /selection = adjrsq;
+					output out=r5(where=(y=.)) p=yhat5 ;
+	run;
+	/* model 2 */
+proc reg data=training ;
+	model y = ADULT_LIMITED_ENGLISH ADULT_SPANISH_LENG POP_MEDICARE POP_65P
+				 POP_DISABILITY AREA_LAND
+				 	 cluster2
+					sizeclass1 sizeclass2 /VIF;
+					output out=r2(where=(y=.)) p=yhat2 ; 
+	run;
+
+data allr ; merge r1 r2 r3 r4 r5; 
+  yorg = log_pctPos  ;
+  e1 = yorg - yhat1 ;
+  e2 = yorg - yhat2 ;
+  e3 = yorg - yhat3 ;
+  e4 = yorg - yhat4 ;
+  e5 = yorg - yhat5 ;
+  rmse1 = ((e1)**2)**0.5 ; 
+  rmse2 = ((e2)**2)**0.5 ; 
+  rmse3 = ((e3)**2)**0.5 ; 
+  rmse4 = ((e4)**2)**0.5 ;
+  rmse5 = ((e5)**2)**0.5 ;  
+  mse1 = (e1)**2 ; 
+  mse2 = (e2)**2 ; 
+  mse3 = (e3)**2 ; 
+  mse4 = (e4)**2 ; 
+  mse5 = (e5)**2 ; 
+  mae1 = abs(e1) ; 
+  mae2 = abs(e2) ; 
+  mae3 = abs(e3) ; 
+  mae4 = abs(e4) ; 
+  mae5 = abs(e5) ;
+  mpe1 = abs((e1)/yorg) ; 
+  mpe2 = abs((e2)/yorg) ; 
+  mpe3 = abs((e3)/yorg) ; 
+  mpe4 = abs((e4)/yorg) ; 
+  mpe5 = abs((e5)/yorg) ; 
+run ;
+
+proc means n mean data=allr maxdec=4 ; var rmse: mse: mae: mpe:  ;  run ;
+
+/* RMSE = Model 2
+   MSE = Model 2
+   MAE = Model 2
+   MPE = Model 2
+*/
+
+
+/* Test Data */
+
+data test;
+   set covid19_subset;
+       Y = log_pctPos  ;
+   if selected=1 then Y = . ;
+run;
+
+proc means data=test ; var log_pctPos y ; run ;
+
+	/* Regression Models using log(pct_positive) */
+
+%let indep_var = ADULT_LIMITED_ENGLISH ADULT_SPANISH_LENG POP_LT18 POP_65P 
+	POP_BELOWPOV POP_DISABILITY POP_HEALTHINS POP_MEDICAD POP_MEDICARE
+	HOUS_NOINTERNET HOUS_NOSMARTPHN HOUS_NO_VEH cluster1 cluster2 cluster3 
+	cluster4 cluster5 cluster6 sizeclass1 sizeclass2 sizeclass3 AREA_LAND 
+	AREA_WATER ;
+
+proc reg data=test ;
+	model y = POP_HEALTHINS;
+					output out=r1(where=(y=.)) p=yhat1 ;
+ 	/* custom model 2 processed separately below */
+	model y = &indep_var ;
+					output out=r3(where=(y=.)) p=yhat3 ;
+	model y = &indep_var /selection = stepwise;
+					output out=r4(where=(y=.)) p=yhat4 ;
+	model y = &indep_var /selection = adjrsq;
+					output out=r5(where=(y=.)) p=yhat5 ;
+	run;
+	/* model 2 */
+proc reg data=test ;
+	model y = ADULT_LIMITED_ENGLISH ADULT_SPANISH_LENG POP_MEDICARE POP_65P
+				 POP_DISABILITY AREA_LAND
+				 	 cluster2
+					sizeclass1 sizeclass2 /VIF;
+					output out=r2(where=(y=.)) p=yhat2 ; 
+	run;
+
+data allr_test ; merge r1 r2 r3 r4 r5; 
+  yorg = log_pctPos  ;
+  e1 = yorg - yhat1 ;
+  e2 = yorg - yhat2 ;
+  e3 = yorg - yhat3 ;
+  e4 = yorg - yhat4 ;
+  e5 = yorg - yhat5 ;
+  rmse1 = ((e1)**2)**0.5 ; 
+  rmse2 = ((e2)**2)**0.5 ; 
+  rmse3 = ((e3)**2)**0.5 ; 
+  rmse4 = ((e4)**2)**0.5 ;
+  rmse5 = ((e5)**2)**0.5 ;  
+  mse1 = (e1)**2 ; 
+  mse2 = (e2)**2 ; 
+  mse3 = (e3)**2 ; 
+  mse4 = (e4)**2 ; 
+  mse5 = (e5)**2 ; 
+  mae1 = abs(e1) ; 
+  mae2 = abs(e2) ; 
+  mae3 = abs(e3) ; 
+  mae4 = abs(e4) ; 
+  mae5 = abs(e5) ;
+  mpe1 = abs((e1)/yorg) ; 
+  mpe2 = abs((e2)/yorg) ; 
+  mpe3 = abs((e3)/yorg) ; 
+  mpe4 = abs((e4)/yorg) ; 
+  mpe5 = abs((e5)/yorg) ; 
+run ;
+
+proc means n mean data=allr_test maxdec=4 ; var rmse: mse: mae: mpe:  ;  run ;
+
+/* RMSE = Model 2
+   MSE = Model 2
+   MAE = Model 2
+   MPE = Model 2
+
+Best model:
+model y = ADULT_LIMITED_ENGLISH ADULT_SPANISH_LENG POP_MEDICARE POP_65P
+				 POP_DISABILITY AREA_LAND
+*/
+
+
+/* Running Training Data for Hospitalization */
+
+proc sort data = covid_clustered;
+	by log_pct_Hosp;
+	run;
+
+	/* Setting up Training Data */
+
+proc surveyselect data= covid_clustered  method=srs seed=111111 outall samprate=0.8 out= covid19_subset;
+run;
+
+proc freq data=covid19_subset; tables selected ; 
+ run;
+
+data training;
+   set covid19_subset;
+       Y = log_pct_Hosp  ;
+   if selected=0 then Y = . ;
+run;
+
+proc means data=training ; var log_pct_Hosp y ; run ;
+
+
+	/* Regression Models using log(pct_hosp_positive) */
+
+%let indep_var = ADULT_LIMITED_ENGLISH ADULT_SPANISH_LENG POP_LT18 POP_65P 
+	POP_BELOWPOV POP_DISABILITY POP_HEALTHINS POP_MEDICAD POP_MEDICARE
+	HOUS_NOINTERNET HOUS_NOSMARTPHN HOUS_NO_VEH cluster1 cluster2 cluster3 
+	cluster4 cluster5 cluster6 sizeclass1 sizeclass2 sizeclass3 AREA_LAND 
+	AREA_WATER ;
+
+proc reg data=training ;
+	model y = POP_BELOWPOV;
+					output out=r1(where=(y=.)) p=yhat1 ;
+ 	/* custom model 2 processed separately below */
+	model y = &indep_var ;
+					output out=r3(where=(y=.)) p=yhat3 ;
+	model y = &indep_var /selection = stepwise;
+					output out=r4(where=(y=.)) p=yhat4 ;
+	model y = &indep_var /selection = adjrsq;
+					output out=r5(where=(y=.)) p=yhat5 ;
+	run;
+	/* model 2 */
+proc reg data=training ;
+	model y =  POP_MEDICARE POP_DISABILITY cluster1
+				HOUS_NOINTERNET HOUS_NOSMARTPHN HOUS_NO_VEH POP_BELOWPOV 
+				 POP_MEDICAD /VIF;
+					output out=r2(where=(y=.)) p=yhat2 ; 
+	run;
+
+data allr_hosp ; merge r1 r2 r3 r4 r5; 
+  yorg = log_pctPos  ;
+  e1 = yorg - yhat1 ;
+  e2 = yorg - yhat2 ;
+  e3 = yorg - yhat3 ;
+  e4 = yorg - yhat4 ;
+  e5 = yorg - yhat5 ;
+  rmse1 = ((e1)**2)**0.5 ; 
+  rmse2 = ((e2)**2)**0.5 ; 
+  rmse3 = ((e3)**2)**0.5 ; 
+  rmse4 = ((e4)**2)**0.5 ;
+  rmse5 = ((e5)**2)**0.5 ;  
+  mse1 = (e1)**2 ; 
+  mse2 = (e2)**2 ; 
+  mse3 = (e3)**2 ; 
+  mse4 = (e4)**2 ; 
+  mse5 = (e5)**2 ; 
+  mae1 = abs(e1) ; 
+  mae2 = abs(e2) ; 
+  mae3 = abs(e3) ; 
+  mae4 = abs(e4) ; 
+  mae5 = abs(e5) ;
+  mpe1 = abs((e1)/yorg) ; 
+  mpe2 = abs((e2)/yorg) ; 
+  mpe3 = abs((e3)/yorg) ; 
+  mpe4 = abs((e4)/yorg) ; 
+  mpe5 = abs((e5)/yorg) ; 
+run ;
+
+proc means n mean data=allr maxdec=4 ; var rmse: mse: mae: mpe:  ;  run ;
+
+/* RMSE = Model 2
+   MSE = Model 2
+   MAE = Model 2
+   MPE = Model 2
+
+Best model:
+model y =  POP_MEDICARE POP_DISABILITY cluster1
+				HOUS_NOINTERNET HOUS_NOSMARTPHN HOUS_NO_VEH POP_BELOWPOV 
+				 POP_MEDICAD /VIF;
+*/
+
+
+/* Test Data */
+
+data test_hosp;
+   set covid19_subset;
+       Y = log_pct_Hosp  ;
+   if selected=1 then Y = . ;
+run;
+
+proc means data=test_hosp ; var log_pct_Hosp y ; run ;
+
+	/* Regression Models using log(pct_hosp_positive) */
+
+%let indep_var = ADULT_LIMITED_ENGLISH ADULT_SPANISH_LENG POP_LT18 POP_65P 
+	POP_BELOWPOV POP_DISABILITY POP_HEALTHINS POP_MEDICAD POP_MEDICARE
+	HOUS_NOINTERNET HOUS_NOSMARTPHN HOUS_NO_VEH cluster1 cluster2 cluster3 
+	cluster4 cluster5 cluster6 sizeclass1 sizeclass2 sizeclass3 AREA_LAND 
+	AREA_WATER ;
+
+proc reg data=test_hosp ;
+	model y = POP_BELOWPOV;
+					output out=r1(where=(y=.)) p=yhat1 ;
+ 	/* custom model 2 processed separately below */
+	model y = &indep_var ;
+					output out=r3(where=(y=.)) p=yhat3 ;
+	model y = &indep_var /selection = stepwise;
+					output out=r4(where=(y=.)) p=yhat4 ;
+	model y = &indep_var /selection = adjrsq;
+					output out=r5(where=(y=.)) p=yhat5 ;
+	run;
+	/* model 2 */
+proc reg data=test_hosp ;
+	model y = POP_MEDICARE POP_DISABILITY cluster1
+				HOUS_NOINTERNET HOUS_NOSMARTPHN HOUS_NO_VEH POP_BELOWPOV 
+				 POP_MEDICAD /VIF;
+					output out=r2(where=(y=.)) p=yhat2 ; 
+	run;
+
+data allr_hosp_test ; merge r1 r2 r3 r4 r5; 
+  yorg = log_pctPos  ;
+  e1 = yorg - yhat1 ;
+  e2 = yorg - yhat2 ;
+  e3 = yorg - yhat3 ;
+  e4 = yorg - yhat4 ;
+  e5 = yorg - yhat5 ;
+  rmse1 = ((e1)**2)**0.5 ; 
+  rmse2 = ((e2)**2)**0.5 ; 
+  rmse3 = ((e3)**2)**0.5 ; 
+  rmse4 = ((e4)**2)**0.5 ;
+  rmse5 = ((e5)**2)**0.5 ;  
+  mse1 = (e1)**2 ; 
+  mse2 = (e2)**2 ; 
+  mse3 = (e3)**2 ; 
+  mse4 = (e4)**2 ; 
+  mse5 = (e5)**2 ; 
+  mae1 = abs(e1) ; 
+  mae2 = abs(e2) ; 
+  mae3 = abs(e3) ; 
+  mae4 = abs(e4) ; 
+  mae5 = abs(e5) ;
+  mpe1 = abs((e1)/yorg) ; 
+  mpe2 = abs((e2)/yorg) ; 
+  mpe3 = abs((e3)/yorg) ; 
+  mpe4 = abs((e4)/yorg) ; 
+  mpe5 = abs((e5)/yorg) ; 
+run ;
+
+proc means n mean data=allr_hosp_test maxdec=4 ; var rmse: mse: mae: mpe:  ;  run ;
+
+/* 
+   RMSE = Model 3
+   MSE = Model 3
+   MAE = Model 3
+   MPE = Model 3
+*/
