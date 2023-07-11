@@ -8,8 +8,11 @@ Intro
 
 ---
 
-Major Projects
+## Major Projects
 
+| [![Author Gender & Book Sales Analysis](Images/booksbutton.jpg)](BookSales/README.md)   | Second Header |
+| ------------- | ------------- |
+| This analysis was performed to determine whether there is any gender bias in fiction book sales that would necessitate the use of pseudonyms. The analysis includes a regression model based on publicly available dataset of bestselling authors. | Content Cell  |
 
 
 ---
