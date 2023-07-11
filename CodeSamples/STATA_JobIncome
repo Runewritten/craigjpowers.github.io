@@ -1,0 +1,938 @@
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      
+. 
+. import delimited "final dataset.csv", delimiter(comma) varnames(1)
+(encoding automatically selected: ISO-8859-1)
+(8 vars, 200 obs)
+
+. set linesize 100
+
+. 
+. //----------------CLEANING DATA----------------------//
+. 
+. describe
+
+Contains data
+ Observations:           200                  
+    Variables:             8                  
+----------------------------------------------------------------------------------------------------
+Variable      Storage   Display    Value
+    name         type    format    label      Variable label
+----------------------------------------------------------------------------------------------------
+industry        byte    %8.0g                 
+gender          byte    %8.0g                 
+experience      byte    %8.0g                 
+race            byte    %8.0g                 
+age             byte    %8.0g                 
+other_income    int     %8.0g                 
+schooling       byte    %8.0g                 
+total_income    float   %9.0g                 
+----------------------------------------------------------------------------------------------------
+Sorted by: 
+     Note: Dataset has changed since last saved.
+
+. quietly list
+
+. 
+. duplicates report
+
+Duplicates in terms of all variables
+
+--------------------------------------
+   Copies | Observations       Surplus
+----------+---------------------------
+        1 |          200             0
+--------------------------------------
+
+. //no duplicate entries, looks good
+. 
+. tab industry, m
+
+   industry |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        100       50.00       50.00
+          1 |        100       50.00      100.00
+------------+-----------------------------------
+      Total |        200      100.00
+
+. tab gender, m
+
+     gender |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |         98       49.00       49.00
+          1 |        102       51.00      100.00
+------------+-----------------------------------
+      Total |        200      100.00
+
+. tab race, m
+
+       race |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |         90       45.00       45.00
+          1 |        110       55.00      100.00
+------------+-----------------------------------
+      Total |        200      100.00
+
+. //no missing values or odd numbers, looks good
+. 
+. tab age, m
+
+        age |      Freq.     Percent        Cum.
+------------+-----------------------------------
+         30 |          6        3.00        3.00
+         31 |          8        4.00        7.00
+         32 |         12        6.00       13.00
+         33 |         11        5.50       18.50
+         34 |         13        6.50       25.00
+         35 |         13        6.50       31.50
+         36 |          8        4.00       35.50
+         37 |          9        4.50       40.00
+         38 |          6        3.00       43.00
+         39 |          5        2.50       45.50
+         40 |          5        2.50       48.00
+         41 |         12        6.00       54.00
+         42 |         15        7.50       61.50
+         43 |         10        5.00       66.50
+         44 |         15        7.50       74.00
+         45 |         12        6.00       80.00
+         46 |         11        5.50       85.50
+         47 |          8        4.00       89.50
+         48 |         11        5.50       95.00
+         49 |          6        3.00       98.00
+         50 |          4        2.00      100.00
+------------+-----------------------------------
+      Total |        200      100.00
+
+. tab exp, m
+
+ experience |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |          3        1.50        1.50
+          1 |         11        5.50        7.00
+          2 |         15        7.50       14.50
+          3 |         12        6.00       20.50
+          4 |         16        8.00       28.50
+          5 |         23       11.50       40.00
+          6 |         16        8.00       48.00
+          7 |         15        7.50       55.50
+          8 |         13        6.50       62.00
+          9 |         10        5.00       67.00
+         10 |          8        4.00       71.00
+         11 |         14        7.00       78.00
+         12 |         14        7.00       85.00
+         13 |          9        4.50       89.50
+         14 |         15        7.50       97.00
+         15 |          6        3.00      100.00
+------------+-----------------------------------
+      Total |        200      100.00
+
+. tab schooling, m
+
+  schooling |      Freq.     Percent        Cum.
+------------+-----------------------------------
+         12 |         14        7.00        7.00
+         13 |         28       14.00       21.00
+         14 |         22       11.00       32.00
+         15 |         21       10.50       42.50
+         16 |         25       12.50       55.00
+         17 |         29       14.50       69.50
+         18 |         29       14.50       84.00
+         19 |         22       11.00       95.00
+         20 |         10        5.00      100.00
+------------+-----------------------------------
+      Total |        200      100.00
+
+. //no numbers outside of an explainable range, looks good
+. 
+. tabstat total, m stats (min p5 p25 mean p75 p95 max range)
+
+    Variable |       Min        p5       p25      Mean       p75       p95       Max     Range
+-------------+--------------------------------------------------------------------------------
+total_income |  86224.81  101583.7  122380.9    139339  154100.7  178726.9    217260  131035.2
+----------------------------------------------------------------------------------------------
+
+. tabstat other, m stats (min p5 p25 mean p75 p95 max range)
+
+    Variable |       Min        p5       p25      Mean       p75       p95       Max     Range
+-------------+--------------------------------------------------------------------------------
+other_income |       104       422      2539   5214.99    7956.5    9555.5      9968      9864
+----------------------------------------------------------------------------------------------
+
+. //no numbers outside of an explainable range, looks good
+.  
+. // Data seems clean so far
+. 
+. 
+. 
+. //----------------REGRESSION 1-------------------------//
+. 
+. //Creating variable for job-only income
+. gen job_income = total_income - other_income
+
+. 
+. //checking for correlations in independent variables
+. corr ind gen exp race age school
+(obs=200)
+
+             | industry   gender experi~e     race      age school~g
+-------------+------------------------------------------------------
+    industry |   1.0000
+      gender |   0.1000   1.0000
+  experience |  -0.0527   0.0894   1.0000
+        race |  -0.1608  -0.0422  -0.0036   1.0000
+         age |  -0.0433  -0.0342   0.1352  -0.0324   1.0000
+   schooling |  -0.0257   0.0563  -0.0446   0.0457   0.0261   1.0000
+
+
+. //    very low correlation
+. 
+. 
+. //even though I'm sure I need to transform data, running a basic regression to 
+. //check residuals
+. reg job i.industry i.race i.gender c.age c.schooling c.expe
+
+      Source |       SS           df       MS      Number of obs   =       200
+-------------+----------------------------------   F(6, 193)       =     97.76
+       Model |  9.0922e+10         6  1.5154e+10   Prob > F        =    0.0000
+    Residual |  2.9918e+10       193   155016838   R-squared       =    0.7524
+-------------+----------------------------------   Adj R-squared   =    0.7447
+       Total |  1.2084e+11       199   607239355   Root MSE        =     12451
+
+------------------------------------------------------------------------------
+  job_income | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+  1.industry |   29138.63   1797.486    16.21   0.000     25593.39    32683.87
+      1.race |   8170.571   1796.925     4.55   0.000     4626.439     11714.7
+    1.gender |   8492.783   1784.401     4.76   0.000     4973.352    12012.21
+         age |   1063.244    154.424     6.89   0.000     758.6691     1367.82
+   schooling |   2742.623   379.4941     7.23   0.000     1994.134    3491.111
+  experience |   2861.726   214.6872    13.33   0.000     2438.292     3285.16
+       _cons |   3597.585   8749.086     0.41   0.681    -13658.51    20853.68
+------------------------------------------------------------------------------
+
+. 
+. outreg2 using "regressions_final_powersC.doc", word replace ctitle (First Regression)
+regressions_final_powersC.doc
+dir : seeout
+
+. 
+. margins
+
+Predictive margins                                         Number of obs = 200
+Model VCE: OLS
+
+Expression: Linear prediction, predict()
+
+------------------------------------------------------------------------------
+             |            Delta-method
+             |     Margin   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       _cons |     134124   880.3887   152.35   0.000     132387.6    135860.5
+------------------------------------------------------------------------------
+
+. 
+. predict predictionY, xb
+
+. predict residuals, r
+
+. 
+. /*
+> twoway (scatter res pred)(lfit res pred)
+> graph export "Res_pred.jpg", as(jpg) quality(90) width(600) height(450) replace
+> //   potential u-shape
+> 
+> twoway (scatter res age)(lfit res age)
+> graph export "Res_age.jpg", as(jpg) quality(90) width(600) height(450) replace
+> //    potential pattern
+> twoway (scatter res exp)(lfit res exp)
+> graph export "Res_exp.jpg", as(jpg) quality(90) width(600) height(450) replace
+> //    potential pattern
+> twoway (scatter res school)(lfit res school)
+> graph export "Res_school.jpg", as(jpg) quality(90) width(600) height(450) replace
+> //    potential pattern
+> twoway (scatter res job)(lfit res job)
+> graph export "Res_jobY.jpg", as(jpg) quality(90) width(600) height(450) replace
+> */
+. 
+. estat vif
+
+    Variable |       VIF       1/VIF  
+-------------+----------------------
+  1.industry |      1.04    0.959572
+      1.race |      1.03    0.969871
+    1.gender |      1.03    0.974087
+         age |      1.02    0.975752
+   schooling |      1.01    0.989982
+  experience |      1.03    0.966607
+-------------+----------------------
+    Mean VIF |      1.03
+
+. //no high multicollinearity
+. estat imtest, white
+
+White's test
+H0: Homoskedasticity
+Ha: Unrestricted heteroskedasticity
+
+   chi2(24) =  39.71
+Prob > chi2 = 0.0230
+
+Cameron & Trivedi's decomposition of IM-test
+
+--------------------------------------------------
+              Source |       chi2     df         p
+---------------------+----------------------------
+  Heteroskedasticity |      39.71     24    0.0230
+            Skewness |       4.55      6    0.6031
+            Kurtosis |       3.56      1    0.0592
+---------------------+----------------------------
+               Total |      47.82     31    0.0274
+--------------------------------------------------
+
+. //evidence of heteroskedasticity
+. 
+. //----------------REGRESSION 2-------------------------//
+. 
+. /*new regression including breakdown of schooling into degree status and 
+> interaction terms between degree status and industry type*/
+. 
+. //breaking schooling into specific degree milestones-- high school is default
+. //if completed high school(12) + 4 to 5 years of college, BS
+. gen bs_degree = inrange(school,16,17)
+
+. //if completed high school(12) + BS + 2 or more years of college, MS
+. gen ms_degree = inrange(school,18,20)
+
+. 
+. 
+. 
+. reg job i.industry i.race i.gender c.age c.expe i.bs_degree i.ms_degree i.bs#i.ind i.ms#i.ind
+
+      Source |       SS           df       MS      Number of obs   =       200
+-------------+----------------------------------   F(9, 190)       =    100.57
+       Model |  9.9875e+10         9  1.1097e+10   Prob > F        =    0.0000
+    Residual |  2.0966e+10       190   110347758   R-squared       =    0.8265
+-------------+----------------------------------   Adj R-squared   =    0.8183
+       Total |  1.2084e+11       199   607239355   Root MSE        =     10505
+
+------------------------------------------------------------------------------------
+        job_income | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------------+----------------------------------------------------------------
+        1.industry |   16764.59   2297.422     7.30   0.000     12232.86    21296.32
+            1.race |   10417.55    1534.49     6.79   0.000     7390.722    13444.37
+          1.gender |    8282.34   1511.726     5.48   0.000     5300.418    11264.26
+               age |   1071.634   130.5064     8.21   0.000      814.206    1329.061
+        experience |   3052.617   182.3893    16.74   0.000     2692.849    3412.385
+       1.bs_degree |   2978.233   2577.834     1.16   0.249    -2106.616    8063.083
+       1.ms_degree |  -2437.368   2544.186    -0.96   0.339    -7455.847    2581.111
+                   |
+bs_degree#industry |
+              1 1  |   10621.69   3698.355     2.87   0.005      3326.58     17916.8
+                   |
+ms_degree#industry |
+              1 1  |   33176.67   3594.951     9.23   0.000     26085.52    40267.81
+                   |
+             _cons |   44271.12   5620.135     7.88   0.000     33185.24    55356.99
+------------------------------------------------------------------------------------
+
+. 
+. outreg2 using "regressions_final_powersC.doc", word append ctitle (Second Regression)
+regressions_final_powersC.doc
+dir : seeout
+
+. 
+. margins
+
+Predictive margins                                         Number of obs = 200
+Model VCE: OLS
+
+Expression: Linear prediction, predict()
+
+------------------------------------------------------------------------------
+             |            Delta-method
+             |     Margin   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       _cons |     134124   742.7912   180.57   0.000     132658.9    135589.2
+------------------------------------------------------------------------------
+
+. 
+. drop res pred
+
+. predict predictionY, xb
+
+. predict residuals, r
+
+. 
+. /*
+> twoway (scatter res pred)(lfit res pred)
+> graph export "2Res_pred.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res age)(lfit res age)
+> graph export "2Res_age.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res expe)(lfit res expe)
+> graph export "2Res_exp.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res industry)(lfit res pred)
+> graph export "2Res_indu.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res race)(lfit res age)
+> graph export "2Res_race.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res gender)(lfit res expe)
+> graph export "2Res_gen.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res bs_degree)(lfit res pred)
+> graph export "2Res_indu.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res ms_degree)(lfit res age)
+> graph export "2Res_race.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> 
+> //trying a new plot type to test linearity
+> acprplot age, lowess
+> graph export "2linearity_age.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> acprplot exp, lowess
+> graph export "2linearity_exp.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> */
+. 
+. estat vif
+
+    Variable |       VIF       1/VIF  
+-------------+----------------------
+  1.industry |      2.39    0.418130
+      1.race |      1.06    0.946739
+    1.gender |      1.04    0.966098
+         age |      1.03    0.972501
+  experience |      1.05    0.953341
+ 1.bs_degree |      2.37    0.421247
+ 1.ms_degree |      2.49    0.402116
+   bs_degree#|
+    industry |
+        1 1  |      2.71    0.368806
+   ms_degree#|
+    industry |
+        1 1  |      2.99    0.334840
+-------------+----------------------
+    Mean VIF |      1.90
+
+. //no high multicollinearity
+. estat imtest, white
+
+White's test
+H0: Homoskedasticity
+Ha: Unrestricted heteroskedasticity
+
+   chi2(37) =  30.79
+Prob > chi2 = 0.7541
+
+Cameron & Trivedi's decomposition of IM-test
+
+--------------------------------------------------
+              Source |       chi2     df         p
+---------------------+----------------------------
+  Heteroskedasticity |      30.79     37    0.7541
+            Skewness |       5.44      9    0.7941
+            Kurtosis |       1.24      1    0.2654
+---------------------+----------------------------
+               Total |      37.48     47    0.8383
+--------------------------------------------------
+
+. //no heteroskedasticity
+. 
+. 
+. 
+. //----------------REGRESSION 3-------------------------//
+. 
+. //test variables
+. gen agesquared = age^2
+
+. gen schooladjusted = school - 12
+
+. gen log_job = ln(job)
+
+. gen log_exp = ln(expe)
+(3 missing values generated)
+
+. gen log_age = ln(age)
+
+. 
+. 
+. //trying log to age and exp 
+.  reg job i.industry i.race i.gender c.log_age c.log_exp i.bs_degree i.ms_degree i.bs#i.ind i.ms#i.
+> ind
+
+      Source |       SS           df       MS      Number of obs   =       197
+-------------+----------------------------------   F(9, 187)       =     81.69
+       Model |  9.2088e+10         9  1.0232e+10   Prob > F        =    0.0000
+    Residual |  2.3424e+10       187   125261819   R-squared       =    0.7972
+-------------+----------------------------------   Adj R-squared   =    0.7875
+       Total |  1.1551e+11       196   589349061   Root MSE        =     11192
+
+------------------------------------------------------------------------------------
+        job_income | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------------+----------------------------------------------------------------
+        1.industry |   16038.01   2468.671     6.50   0.000     11167.99    20908.03
+            1.race |    10237.6   1662.388     6.16   0.000     6958.156    13517.05
+          1.gender |   9259.554   1621.366     5.71   0.000     6061.036    12458.07
+           log_age |   46203.39   5494.769     8.41   0.000     35363.69    57043.09
+           log_exp |   16255.44   1137.042    14.30   0.000     14012.36    18498.52
+       1.bs_degree |   2323.639   2747.384     0.85   0.399     -3096.21    7743.488
+       1.ms_degree |  -1460.415   2780.973    -0.53   0.600    -6946.527    4025.698
+                   |
+bs_degree#industry |
+              1 1  |   11318.63   3955.587     2.86   0.005     3515.319    19121.94
+                   |
+ms_degree#industry |
+              1 1  |   31229.92   3900.049     8.01   0.000     23536.18    38923.67
+                   |
+             _cons |  -89229.56   20311.89    -4.39   0.000    -129299.5   -49159.66
+------------------------------------------------------------------------------------
+
+. 
+.  outreg2 using "regressions_final_powersC.doc", word append ctitle (Third Regression)
+regressions_final_powersC.doc
+dir : seeout
+
+. 
+.  margins
+
+Predictive margins                                         Number of obs = 197
+Model VCE: OLS
+
+Expression: Linear prediction, predict()
+
+------------------------------------------------------------------------------
+             |            Delta-method
+             |     Margin   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       _cons |   134713.3      797.4   168.94   0.000     133140.2    136286.3
+------------------------------------------------------------------------------
+
+. 
+. drop res pred
+
+. predict predictionY, xb
+(3 missing values generated)
+
+. predict residuals, r
+(3 missing values generated)
+
+. 
+. /*
+> twoway (scatter res pred)(lfit res pred)
+> graph export "3Res_pred.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res age)(lfit res age)
+> graph export "3Res_age.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res expe)(lfit res expe)
+> graph export "3Res_exp.jpg", as(jpg) quality(90) width(600) height(450) replace
+> */
+. 
+. estat vif
+
+    Variable |       VIF       1/VIF  
+-------------+----------------------
+  1.industry |      2.40    0.417347
+      1.race |      1.07    0.930917
+    1.gender |      1.03    0.967723
+     log_age |      1.02    0.976125
+     log_exp |      1.04    0.961456
+ 1.bs_degree |      2.36    0.423366
+ 1.ms_degree |      2.55    0.391886
+   bs_degree#|
+    industry |
+        1 1  |      2.73    0.366771
+   ms_degree#|
+    industry |
+        1 1  |      3.09    0.323823
+-------------+----------------------
+    Mean VIF |      1.92
+
+. //no high multicollinearity
+. estat imtest, white
+
+White's test
+H0: Homoskedasticity
+Ha: Unrestricted heteroskedasticity
+
+   chi2(37) =  43.19
+Prob > chi2 = 0.2237
+
+Cameron & Trivedi's decomposition of IM-test
+
+--------------------------------------------------
+              Source |       chi2     df         p
+---------------------+----------------------------
+  Heteroskedasticity |      43.19     37    0.2237
+            Skewness |      11.17      9    0.2644
+            Kurtosis |       0.05      1    0.8318
+---------------------+----------------------------
+               Total |      54.40     47    0.2133
+--------------------------------------------------
+
+. //no heteroskedasticity
+. 
+.  //----------------REGRESSION 4-------------------------//
+.  
+.  //running regression with Y-transformed to ln(job_income) based on researched theory
+.  
+. reg log_job i.industry i.race i.gender c.age c.expe i.bs_degree i.ms_degree i.bs#i.ind i.ms#i.ind
+
+      Source |       SS           df       MS      Number of obs   =       200
+-------------+----------------------------------   F(9, 190)       =     86.06
+       Model |  5.59422733         9  .621580815   Prob > F        =    0.0000
+    Residual |  1.37235111       190  .007222901   R-squared       =    0.8030
+-------------+----------------------------------   Adj R-squared   =    0.7937
+       Total |  6.96657844       199  .035007932   Root MSE        =    .08499
+
+------------------------------------------------------------------------------------
+           log_job | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------------+----------------------------------------------------------------
+        1.industry |   .1328184   .0185872     7.15   0.000     .0961545    .1694822
+            1.race |   .0829151   .0124148     6.68   0.000     .0584267    .1074036
+          1.gender |   .0586288   .0122306     4.79   0.000     .0345037     .082754
+               age |   .0078642   .0010559     7.45   0.000     .0057815     .009947
+        experience |   .0234347   .0014756    15.88   0.000      .020524    .0263454
+       1.bs_degree |   .0229065   .0208559     1.10   0.273    -.0182323    .0640454
+       1.ms_degree |  -.0191485   .0205837    -0.93   0.353    -.0597504    .0214533
+                   |
+bs_degree#industry |
+              1 1  |   .0751969   .0299215     2.51   0.013      .016176    .1342178
+                   |
+ms_degree#industry |
+              1 1  |   .2348308   .0290849     8.07   0.000     .1774601    .2922016
+                   |
+             _cons |   11.11682   .0454696   244.49   0.000     11.02713    11.20651
+------------------------------------------------------------------------------------
+
+. 
+.  outreg2 using "regressions_final_powersC.doc", word append ctitle (Fourth Regression)
+regressions_final_powersC.doc
+dir : seeout
+
+. 
+. margins
+
+Predictive margins                                         Number of obs = 200
+Model VCE: OLS
+
+Expression: Linear prediction, predict()
+
+------------------------------------------------------------------------------
+             |            Delta-method
+             |     Margin   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       _cons |   11.78941   .0060095  1961.78   0.000     11.77756    11.80127
+------------------------------------------------------------------------------
+
+. 
+. drop res pred
+
+. predict predictionY, xb
+
+. predict residuals, r
+
+. 
+. /*
+> twoway (scatter res pred)(lfit res pred)
+> graph export "4Res_pred.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res age)(lfit res age)
+> graph export "4Res_age.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res expe)(lfit res expe)
+> graph export "4Res_exp.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> acprplot age, lowess
+> graph export "4linearity_age.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> acprplot exp, lowess
+> graph export "4linearity_exp.jpg", as(jpg) quality(90) width(600) height(450) replace
+> */
+. 
+. 
+. estat vif
+
+    Variable |       VIF       1/VIF  
+-------------+----------------------
+  1.industry |      2.39    0.418130
+      1.race |      1.06    0.946739
+    1.gender |      1.04    0.966098
+         age |      1.03    0.972501
+  experience |      1.05    0.953341
+ 1.bs_degree |      2.37    0.421247
+ 1.ms_degree |      2.49    0.402116
+   bs_degree#|
+    industry |
+        1 1  |      2.71    0.368806
+   ms_degree#|
+    industry |
+        1 1  |      2.99    0.334840
+-------------+----------------------
+    Mean VIF |      1.90
+
+. //no high multicollinearity
+. estat imtest, white
+
+White's test
+H0: Homoskedasticity
+Ha: Unrestricted heteroskedasticity
+
+   chi2(37) =  48.17
+Prob > chi2 = 0.1033
+
+Cameron & Trivedi's decomposition of IM-test
+
+--------------------------------------------------
+              Source |       chi2     df         p
+---------------------+----------------------------
+  Heteroskedasticity |      48.17     37    0.1033
+            Skewness |       9.87      9    0.3610
+            Kurtosis |       2.91      1    0.0883
+---------------------+----------------------------
+               Total |      60.95     47    0.0831
+--------------------------------------------------
+
+. //no heteroskedasticity
+. 
+. //not a strong improvement
+. 
+. /*
+> histogram job
+> graph export "histogram_job.jpg", as(jpg) quality(90) width(600) height(450) replace
+> //not much skewness to justify transformation
+> */
+. 
+.  //----------------REGRESSION 5-------------------------//
+. 
+.  /*realized I should check the validity of schooling and industry interaction 
+>  before committing to splitting it into degrees*/
+.  
+. reg job i.industry i.race i.gender c.age c.expe c.schooling c.schooling#i.ind
+
+      Source |       SS           df       MS      Number of obs   =       200
+-------------+----------------------------------   F(7, 192)       =    136.69
+       Model |  1.0065e+11         7  1.4378e+10   Prob > F        =    0.0000
+    Residual |  2.0196e+10       192   105185450   R-squared       =    0.8329
+-------------+----------------------------------   Adj R-squared   =    0.8268
+       Total |  1.2084e+11       199   607239355   Root MSE        =     10256
+
+--------------------------------------------------------------------------------------
+          job_income | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+---------------------+----------------------------------------------------------------
+          1.industry |  -67033.98   10112.14    -6.63   0.000    -86979.14   -47088.82
+              1.race |   10210.19   1495.318     6.83   0.000     7260.827    13159.55
+            1.gender |   8593.195   1469.914     5.85   0.000     5693.942    11492.45
+                 age |   1080.512   127.2174     8.49   0.000     829.5886    1331.435
+          experience |   2961.162   177.1479    16.72   0.000     2611.756    3310.568
+           schooling |  -216.1026   438.6655    -0.49   0.623    -1081.325    649.1197
+                     |
+industry#c.schooling |
+                  1  |   6057.068    630.011     9.61   0.000     4814.437      7299.7
+                     |
+               _cons |   48160.71   8568.804     5.62   0.000     31259.64    65061.79
+--------------------------------------------------------------------------------------
+
+. 
+. outreg2 using "regressions_final_powersC.doc", word append ctitle (Fifth Regression)
+regressions_final_powersC.doc
+dir : seeout
+
+. 
+. margins
+
+Predictive margins                                         Number of obs = 200
+Model VCE: OLS
+
+Expression: Linear prediction, predict()
+
+------------------------------------------------------------------------------
+             |            Delta-method
+             |     Margin   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       _cons |     134124   725.2084   184.95   0.000     132693.6    135554.4
+------------------------------------------------------------------------------
+
+. 
+. drop res pred
+
+. predict predictionY, xb
+
+. predict residuals, r
+
+. 
+. 
+. /*
+> twoway (scatter res pred)(lfit res pred)
+> graph export "5Res_pred.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res age)(lfit res age)
+> graph export "5Res_age.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res expe)(lfit res expe)
+> graph export "5Res_exp.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res schooli)(lfit res expe)
+> graph export "5Res_school.jpg", as(jpg) quality(90) width(600) height(450) replace
+> */
+. 
+. estat vif
+
+    Variable |       VIF       1/VIF  
+-------------+----------------------
+  1.industry |     48.61    0.020573
+      1.race |      1.05    0.950349
+    1.gender |      1.03    0.974038
+         age |      1.03    0.975557
+  experience |      1.04    0.963312
+   schooling |      1.99    0.502744
+    industry#|
+ c.schooling |
+          1  |     49.57    0.020172
+-------------+----------------------
+    Mean VIF |     14.90
+
+. //no high multicollinearity
+. estat imtest, white
+
+White's test
+H0: Homoskedasticity
+Ha: Unrestricted heteroskedasticity
+
+   chi2(29) =  25.18
+Prob > chi2 = 0.6689
+
+Cameron & Trivedi's decomposition of IM-test
+
+--------------------------------------------------
+              Source |       chi2     df         p
+---------------------+----------------------------
+  Heteroskedasticity |      25.18     29    0.6689
+            Skewness |       4.71      7    0.6957
+            Kurtosis |       0.38      1    0.5357
+---------------------+----------------------------
+               Total |      30.27     37    0.7754
+--------------------------------------------------
+
+. //no heteroskedasticity
+. 
+. //----------------REGRESSION 6-------------------------//
+. 
+. //running the previous regression, but adjusting schooling so high-school = 0
+. 
+. reg job i.industry i.race i.gender c.age c.expe c.schoolad c.schoolad#i.ind
+
+      Source |       SS           df       MS      Number of obs   =       200
+-------------+----------------------------------   F(7, 192)       =    136.69
+       Model |  1.0065e+11         7  1.4378e+10   Prob > F        =    0.0000
+    Residual |  2.0196e+10       192   105185450   R-squared       =    0.8329
+-------------+----------------------------------   Adj R-squared   =    0.8268
+       Total |  1.2084e+11       199   607239355   Root MSE        =     10256
+
+-------------------------------------------------------------------------------------------
+               job_income | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+--------------------------+----------------------------------------------------------------
+               1.industry |   5650.838   2856.695     1.98   0.049     16.30185    11285.37
+                   1.race |   10210.19   1495.318     6.83   0.000     7260.827    13159.55
+                 1.gender |   8593.195   1469.914     5.85   0.000     5693.942    11492.45
+                      age |   1080.512   127.2174     8.49   0.000     829.5886    1331.435
+               experience |   2961.162   177.1479    16.72   0.000     2611.756    3310.568
+           schooladjusted |  -216.1026   438.6655    -0.49   0.623    -1081.325    649.1197
+                          |
+industry#c.schooladjusted |
+                       1  |   6057.068    630.011     9.61   0.000     4814.437      7299.7
+                          |
+                    _cons |   45567.48   5553.926     8.20   0.000     34612.94    56522.03
+-------------------------------------------------------------------------------------------
+
+. 
+. outreg2 using "regressions_final_powersC.doc", word append ctitle (Sixth Regression)
+regressions_final_powersC.doc
+dir : seeout
+
+. 
+. margins
+
+Predictive margins                                         Number of obs = 200
+Model VCE: OLS
+
+Expression: Linear prediction, predict()
+
+------------------------------------------------------------------------------
+             |            Delta-method
+             |     Margin   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       _cons |     134124   725.2084   184.95   0.000     132693.6    135554.4
+------------------------------------------------------------------------------
+
+. 
+. drop res pred
+
+. predict predictionY, xb
+
+. predict residuals, r
+
+. 
+. 
+. /*
+> twoway (scatter res pred)(lfit res pred)
+> graph export "6Res_pred.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res age)(lfit res age)
+> graph export "6Res_age.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res expe)(lfit res expe)
+> graph export "6Res_exp.jpg", as(jpg) quality(90) width(600) height(450) replace
+> 
+> twoway (scatter res schooli)(lfit res expe)
+> graph export "6Res_school.jpg", as(jpg) quality(90) width(600) height(450) replace
+> */
+. 
+. 
+. estat vif
+
+    Variable |       VIF       1/VIF  
+-------------+----------------------
+  1.industry |      3.88    0.257785
+      1.race |      1.05    0.950349
+    1.gender |      1.03    0.974038
+         age |      1.03    0.975557
+  experience |      1.04    0.963312
+schooladju~d |      1.99    0.502744
+    industry#|
+          c. |
+schooladju~d |
+          1  |      4.83    0.206831
+-------------+----------------------
+    Mean VIF |      2.12
+
+. //no high multicollinearity
+. estat imtest, white
+
+White's test
+H0: Homoskedasticity
+Ha: Unrestricted heteroskedasticity
+
+   chi2(29) =  25.18
+Prob > chi2 = 0.6689
+
+Cameron & Trivedi's decomposition of IM-test
+
+--------------------------------------------------
+              Source |       chi2     df         p
+---------------------+----------------------------
+  Heteroskedasticity |      25.18     29    0.6689
+            Skewness |       4.71      7    0.6957
+            Kurtosis |       0.38      1    0.5357
+---------------------+----------------------------
+               Total |      30.27     37    0.7754
+--------------------------------------------------
+
+. //no heteroskedasticity
+. 
+.  
+. //----------------END--------------------//
