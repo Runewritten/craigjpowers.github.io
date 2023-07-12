@@ -33,4 +33,8 @@ A selection of sample code taken from various analysis projects.
 
 ---
 
-linkedin and resume
+If you'd like to get in contact with me:
+
+Email: <craigjpowers@gmail.com>
+
+LinkedIn: <https://www.linkedin.com/in/thecraigpowers/>
