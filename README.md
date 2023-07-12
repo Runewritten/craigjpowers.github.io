@@ -4,7 +4,9 @@
 
 ---
 
-Intro
+Thanks for checking out my work. Below you'll find a variety of skills showcased, including:
+
+Tableau, Visualization, STATA, SAS, R, Descriptive Analysis, OLS and Logistic Regressions, K-means Clustering, Neural Networks, Data Cleaning, and Evidence-based Decision-making.
 
 ---
 
