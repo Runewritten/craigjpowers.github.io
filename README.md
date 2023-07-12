@@ -8,11 +8,11 @@ Intro
 
 ---
 
-## Major Projects
+## Projects
 
-| [![Author Gender & Book Sales Analysis](Images/booksbutton.jpg)](BookSales/README.md)   | Second Header |
+| [![Author Gender & Book Sales Analysis](Images/booksbutton.jpg)](BookSales/README.md)   | CEO Pay Analysis |
 | ------------- | ------------- |
-| This analysis was performed to determine whether there is any gender bias in fiction book sales that would necessitate the use of pseudonyms. The analysis includes a regression model based on publicly available dataset of bestselling authors. | Content Cell  |
+| This analysis was performed to determine whether there is any gender bias in fiction book sales that would necessitate the use of pseudonyms. The analysis includes a regression model based on publicly available dataset of bestselling authors. | This presentation follows a Tableau story delving into the pay differences between CEOs and their median workers, and the trends and factors that led to a ballooning gap across the board.|
 
 
 ---
